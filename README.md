@@ -32,6 +32,7 @@ Generate entire presentations from simple text prompts automatically.
 ```bash
 # Clone the repository
 git clone https://github.com/Ishany-coder/PPTgenerator.git
+
 cd PPTgenerator
 
 # Install dependencies
@@ -80,8 +81,6 @@ The feature to automatically download the PowerPoint (.pptx) directly is under d
 	•	[Unsplash API](https://unsplash.com/developers)
 
 ⸻
-
-✅ Notes
 ## ✅ Notes
 
 - OpenAI API key is required.
