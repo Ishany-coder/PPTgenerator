@@ -21,9 +21,9 @@ Generate entire presentations from simple text prompts automatically.
 
 ## 🛠 Requirements
 
-- (Node.js >= 18)[https://nodejs.org/en]
-- (OpenAI API Key)[https://platform.openai.com/api-keys]
-- (Unsplash API Key)[https://unsplash.com/developers for future image support]
+- [Node.js >= 18](https://nodejs.org/en)
+- [OpenAI API Key](https://platform.openai.com/api-keys)
+- [Unsplash API Key](https://unsplash.com/developers) for future image support
 
 ---
 
@@ -53,7 +53,7 @@ Open: http://localhost:5173
 
 💡 How it works
 	1.	Enter a prompt like:
-Create a 5-slide presentation about climate change
+	Create a 5-slide presentation about climate change
 	2.	The AI will:
 	•	Generate structured slides (titles + content)
 	•	Choose appropriate layouts
@@ -70,11 +70,11 @@ The feature to automatically download the PowerPoint (.pptx) directly is under d
 ⸻
 
 🟣 Tech Stack
-	•	(SvelteKit)[https://kit.svelte.dev/]
-	•	(Tailwind CSS)[https://tailwindcss.com/]
-	•	(OpenAI API)[https://platform.openai.com/]
-	•	(pptxgenJS)[https://gitbrent.github.io/PptxGenJS/]
-	•	(Unsplash API)[https://unsplash.com/developers]
+	•	[SvelteKit](https://kit.svelte.dev/)
+	•	[Tailwind CSS](https://tailwindcss.com/)
+	•	[OpenAI API](https://platform.openai.com/)
+	•	[pptxgenJS](https://gitbrent.github.io/PptxGenJS/)
+	•	[Unsplash API](https://unsplash.com/developers)
 
 ⸻
 
