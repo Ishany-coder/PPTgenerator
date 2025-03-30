@@ -53,16 +53,10 @@ Open: http://localhost:5173
 
 💡 How it works
 	1.	Enter a prompt like:
- 
-	Create a 5-slide presentation about climate change
 	2.	The AI will:
- 
 	•	Generate structured slides (titles + content)
- 
 	•	Choose appropriate layouts
- 
 	•	Output fully working pptxgenJS code
- 
 	3.	You can copy this code into a simple Node.js script to generate your .pptx file.
 
 ⸻
