@@ -84,5 +84,5 @@ The feature to automatically download the PowerPoint (.pptx) directly is under d
 ## ✅ Notes
 
 - OpenAI API key is required.
-- Unsplash API is optional.
+- Unsplash API is required for the image generation.
 - The generated PowerPoint code can be used in a separate Node.js script to generate your `.pptx` file.
