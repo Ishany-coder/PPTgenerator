@@ -1,38 +1,84 @@
-# sv
+# 🪄 AI PowerPoint Generator
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+An AI-powered PowerPoint generator using OpenAI's GPT model and pptxgenJS.  
+Generate entire presentations from simple text prompts automatically.
 
-## Creating a project
+---
 
-If you're seeing this, you've probably already done this step. Congrats!
+## ✨ Features
+
+✅ Generates complete PowerPoint code using `pptxgenJS`  
+✅ Automatically creates slides with:
+- Titles
+- Content
+- Suggested layouts
+
+✅ Clean UI powered by SvelteKit + Tailwind CSS  
+⚙️ **Note:** Automatic `.pptx` download feature is currently being worked on  
+(Currently, you get ready-to-run code you can use in your own Node.js script)
+
+---
+
+## 🛠 Requirements
+
+- (Node.js >= 18)[https://nodejs.org/en]
+- (OpenAI API Key)[https://platform.openai.com/api-keys]
+- (Unsplash API Key)[https://unsplash.com/developers for future image support]
+
+---
+
+## 🚀 Installation
 
 ```bash
-# create a new project in the current directory
-npx sv create
+# Clone the repository
+git clone https://github.com/Ishany-coder/PPTgenerator.git
+cd PPTgenerator
 
-# create a new project in my-app
-npx sv create my-app
+# Install dependencies
+npm install
+
+# Create your .env file
+touch .env
 ```
+Add this to your .env file:
+`OPENAI_API_KEY=your_openai_api_key_here
+UNSPLASH_ACCESS_KEY=your_unsplash_access_key_here`
 
-## Developing
+✅ Running the App
+`npm run dev -- --open`
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Open: http://localhost:5173
 
-```bash
-npm run dev
+⸻
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
+💡 How it works
+	1.	Enter a prompt like:
+Create a 5-slide presentation about climate change
+	2.	The AI will:
+	•	Generate structured slides (titles + content)
+	•	Choose appropriate layouts
+	•	Output fully working pptxgenJS code
+	3.	You can copy this code into a simple Node.js script to generate your .pptx file.
 
-## Building
+⸻
 
-To create a production version of your app:
+⚠️ About Download Feature
 
-```bash
-npm run build
-```
+The app currently only generates the PowerPoint code using pptxgenJS.
+The feature to automatically download the PowerPoint (.pptx) directly is under development and will be added soon.
 
-You can preview the production build with `npm run preview`.
+⸻
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+🟣 Tech Stack
+	•	(SvelteKit)[https://kit.svelte.dev/]
+	•	(Tailwind CSS)[https://tailwindcss.com/]
+	•	(OpenAI API)[https://platform.openai.com/]
+	•	(pptxgenJS)[https://gitbrent.github.io/PptxGenJS/]
+	•	(Unsplash API)[https://unsplash.com/developers]
+
+⸻
+
+✅ Notes
+	•	OpenAI API key is required.
+	•	Unsplash API is required.
+	•	The generated PowerPoint code can be used in a separate Node.js script to generate your .pptx file.
