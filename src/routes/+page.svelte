@@ -40,34 +40,65 @@
 		}
 	}
 
+	async function copyCode(code: string | undefined) {
+		if (!code) return;
+		try {
+			await navigator.clipboard.writeText(code);
+			alert('Code copied to clipboard!');
+		} catch (err) {
+			console.error('Failed to copy code:', err);
+			alert('Failed to copy code. Please try again.');
+		}
+	}
+
 	async function generatePreview(code: string | undefined) {
 		if (!code) return;
 		
 		isGenerating = true;
 		try {
-			const res = await fetch('/api/runPPTX', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ code })
-			});
-
-			if (!res.ok) {
-				const data = await res.json();
-				throw new Error(data.error + (data.details ? `: ${data.details}` : ''));
+			// First, load JSZip if not already loaded
+			if (!window.JSZip) {
+				const jszipScript = document.createElement('script');
+				jszipScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+				await new Promise((resolve, reject) => {
+					jszipScript.onload = resolve;
+					jszipScript.onerror = reject;
+					document.head.appendChild(jszipScript);
+				});
 			}
 
-			// Get the blob from the response
-			const blob = await res.blob();
+			// Then load pptxgenjs if not already loaded
+			if (!window.pptxgen) {
+				const pptxScript = document.createElement('script');
+				pptxScript.src = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';
+				await new Promise((resolve, reject) => {
+					pptxScript.onload = () => {
+						// Add a small delay to ensure the library is fully initialized
+						setTimeout(resolve, 100);
+					};
+					pptxScript.onerror = reject;
+					document.head.appendChild(pptxScript);
+				});
+			}
+
+			// Create a script element to execute the code
+			const script = document.createElement('script');
+			// Remove the import statement and clean up text content
+			const modifiedCode = code
+				.replace(/import\s+pptxgen\s+from\s+'pptxgenjs';\s*/, '')
+				.replace(/addText\('([^']+)'/g, (match, p1) => {
+					// Clean up the text content by joining lines and removing extra spaces
+					const cleanedText = p1.split(/\s+/).join(' ').trim();
+					return `addText('${cleanedText}'`;
+				});
 			
-			// Create a download link
-			const url = window.URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = 'presentation.pptx';
-			document.body.appendChild(a);
-			a.click();
-			window.URL.revokeObjectURL(url);
-			a.remove();
+			script.textContent = modifiedCode;
+			document.body.appendChild(script);
+			
+			// Remove the script after execution
+			setTimeout(() => {
+				document.body.removeChild(script);
+			}, 1000);
 
 			// Update the last message with success
 			messages.update(m => {
@@ -75,15 +106,15 @@
 				if (lastMessage && lastMessage.sender === 'bot') {
 					return [...m.slice(0, -1), { 
 						...lastMessage, 
-						text: lastMessage.text + '\n\nPresentation downloaded successfully!'
+						text: lastMessage.text + '\n\nPresentation code executed! Check your downloads folder for the PowerPoint file.'
 					}];
 				}
 				return m;
 			});
 		} catch (err) {
-			console.error('Error generating preview:', err);
+			console.error('Error executing code:', err);
 			messages.update(m => [...m, { 
-				text: `Error generating presentation: ${err instanceof Error ? err.message : 'Unknown error occurred'}. Please try again.`, 
+				text: `Error executing presentation code: ${err instanceof Error ? err.message : 'Unknown error occurred'}. Please try again.`, 
 				sender: 'bot',
 				code: undefined,
 				slides: undefined
@@ -122,13 +153,21 @@
 					<div class="w-full max-w-4xl bg-gray-900 p-4 rounded-lg shadow">
 						<div class="flex justify-between items-center mb-4">
 							<h3 class="text-white text-lg">Generated Code:</h3>
-							<button
-								on:click={() => generatePreview(msg.code)}
-								type="button"
-								disabled={isGenerating}
-								class="px-4 py-2 rounded-lg bg-green-500 text-white font-semibold hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed">
-								{isGenerating ? 'Generating...' : 'Download Presentation'}
-							</button>
+							<div class="space-x-2">
+								<button
+									on:click={() => copyCode(msg.code)}
+									type="button"
+									class="px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold hover:bg-blue-600 transition">
+									Copy Code
+								</button>
+								<button
+									on:click={() => generatePreview(msg.code)}
+									type="button"
+									disabled={isGenerating}
+									class="px-4 py-2 rounded-lg bg-green-500 text-white font-semibold hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed">
+									{isGenerating ? 'Generating...' : 'Download Presentation'}
+								</button>
+							</div>
 						</div>
 						<pre class="text-sm text-gray-300 overflow-x-auto"><code>{msg.code}</code></pre>
 					</div>

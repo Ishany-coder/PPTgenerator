@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { OPENAI_API_KEY, UNSPLASH_ACCESS_KEY } from '$env/static/private';
+import PptxGenJS from 'pptxgenjs';
 
 interface Slide {
     title: string;
@@ -52,10 +53,27 @@ const IMAGE_FUNCTION = {
 };
 
 async function fetchImageUrl(query: string): Promise<string | null> {
-    const apiUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&orientation=landscape`;
-    const res = await fetch(apiUrl, { headers: { 'Authorization': `Client-ID ${UNSPLASH_ACCESS_KEY}` } });
-    const data = await res.json();
-    return data.results[0]?.urls?.regular || null;
+    try {
+        const apiUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&orientation=landscape`;
+        const res = await fetch(apiUrl, { headers: { 'Authorization': `Client-ID ${UNSPLASH_ACCESS_KEY}` } });
+        
+        // Check if we hit rate limit
+        if (res.status === 429) {
+            console.warn('Unsplash API rate limit reached, using fallback image');
+            return "https://images.unsplash.com/photo-1454165804606-c3d4bc8fb041?w=800&auto=format&fit=crop&q=60";
+        }
+
+        if (!res.ok) {
+            console.warn('Unsplash API error, using fallback image');
+            return "https://images.unsplash.com/photo-1454165804606-c3d4bc8fb041?w=800&auto=format&fit=crop&q=60";
+        }
+
+        const data = await res.json();
+        return data.results[0]?.urls?.regular || null;
+    } catch (error) {
+        console.warn('Error fetching image from Unsplash, using fallback image:', error);
+        return "https://images.unsplash.com/photo-1454165804606-c3d4bc8fb041?w=800&auto=format&fit=crop&q=60";
+    }
 }
 
 /** @type {import('./$types').RequestHandler} */
@@ -154,150 +172,128 @@ export async function POST({ request }) {
 // ========================
 
 function generatePPTXCode(data: PowerPointStructure): string {
-    return `// NOT AI GENERATED - Please install pptxgenjs first:
-// npm install pptxgenjs
-
-const pptxgen = require('pptxgenjs');
+    return `// PowerPoint presentation generation code
 
 async function generatePresentation() {
     try {
-        const pres = new pptxgen();
+        const pres = new PptxGenJS();
+        pres.layout = 'LAYOUT_WIDE';
+        pres.background = { fill: { type: 'solid', color: 'FFFFFF' } };
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const fileName = \`presentation_\${timestamp}.pptx\`;
 
 ${data.slides.map((slide, i) => `
-        // Slide ${i + 1}
         const slide${i + 1} = pres.addSlide();
-        
-        // Add title
-        slide${i + 1}.addText("${escape(slide.title)}", {
-            x: 1,
-            y: 0.5,
-            w: '80%',
-            fontSize: 24,
-            bold: true,
-            color: '363636'
-        });
 
-        // Add content text at the top
+        // Title - moved down
+        slide${i + 1}.addText([{ text: '${slide.title.replace(/'/g, "\\'")}', options: {
+            x: 0.35,
+            y: 0.3,
+            w: 0.6,
+            h: 0.15,
+            fontSize: 40,
+            color: '000000',
+            bold: true,
+            align: 'left'
+        }}]);
+
+        // Content
         ${generateSlideContent(slide, i)}
 
-        // Add image below the text
-        ${slide.imageUrl ? `if ("${slide.imageUrl}") {
-            slide${i + 1}.addImage({
-                path: "${slide.imageUrl}",
-                x: 1,
-                y: 3.5,  // Moved down to accommodate text
-                w: '80%',
-                h: '50%'  // Reduced height to fit with text
-            });
-        }` : ''}
+        // Image - 75% right
+        ${slide.imageUrl ? `slide${i + 1}.addImage({
+            path: '${slide.imageUrl}',
+            x: 0.75,
+            y: 0.65,
+            w: '20%',
+            h: '30%',
+            sizing: { type: 'contain', w: '20%', h: '30%' }
+        });` : ''}
 `).join('\n')}
 
-        await pres.writeFile({ fileName: 'presentation.pptx' });
-        console.log('Presentation saved successfully');
+        await pres.writeFile({ fileName });
+        console.log(\`Presentation saved as \${fileName}\`);
     } catch (err) {
-        console.error('Error generating presentation:', err);
-        process.exit(1);
+        console.error('Error:', err);
+        throw err;
     }
 }
 
-generatePresentation();`;
+generatePresentation().catch(console.error);`;
 }
 
-// Escape quotes and newlines inside strings
-function escape(str: string): string {
-    return str
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"')
-        .replace(/\n/g, '\\n')
-        .replace(/\r/g, '\\r')
-        .replace(/\t/g, '\\t');
-}
-
-// Generate content per layout
 function generateSlideContent(slide: Slide, i: number): string {
-    const content = escape(slide.content);
+    const baseStyle = {
+        x: 0.35,
+        y: 0.7,  // Moved much lower
+        w: 0.35,
+        h: 0.25,
+        fontSize: 16,
+        color: '000000',
+        align: 'left'
+    };
+
     switch (slide.layout) {
         case 'title':
-            return `slide${i + 1}.addText("${content}", {
-            x: 1,
-            y: 1.5,
-            w: '80%',
-            fontSize: 18,
-            color: '363636'
-        });`;
+            return `slide${i + 1}.addText([{ text: '${slide.content.replace(/'/g, "\\'")}', options: {
+                ...${JSON.stringify(baseStyle)}
+            }}]);`;
         case 'mainPoint':
-            return `slide${i + 1}.addText("${content}", {
-            x: 1,
-            y: 1.5,
-            w: '80%',
-            fontSize: 20,
-            bold: true,
-            color: '363636'
-        });`;
+            return `slide${i + 1}.addText([{ text: '${slide.content.replace(/'/g, "\\'")}', options: {
+                ...${JSON.stringify(baseStyle)},
+                fontSize: 18,
+                bold: true
+            }}]);`;
         case 'twoContent':
-            const [left, right] = content.split('|');
-            return `slide${i + 1}.addText("${left ?? ''}", {
-            x: 1,
-            y: 1.5,
-            w: '45%',
-            fontSize: 16,
-            color: '363636'
-        });
-        slide${i + 1}.addText("${right ?? ''}", {
-            x: '55%',
-            y: 1.5,
-            w: '45%',
-            fontSize: 16,
-            color: '363636'
-        });`;
+            const [left, right] = slide.content.split('|');
+            return `
+            slide${i + 1}.addText([{ text: '${(left || '').replace(/'/g, "\\'")}', options: {
+                ...${JSON.stringify(baseStyle)}
+            }}]);
+            slide${i + 1}.addText([{ text: '${(right || '').replace(/'/g, "\\'")}', options: {
+                ...${JSON.stringify(baseStyle)},
+                x: 0.75,
+                w: 0.2
+            }}]);`;
         case 'comparison':
-            const [before, after] = content.split('|');
-            return `slide${i + 1}.addText("Before", {
-            x: 1,
-            y: 1.5,
-            w: '45%',
-            fontSize: 18,
-            bold: true,
-            color: '363636'
-        });
-        slide${i + 1}.addText("${before ?? ''}", {
-            x: 1,
-            y: 2,
-            w: '45%',
-            fontSize: 16,
-            color: '363636'
-        });
-        slide${i + 1}.addText("After", {
-            x: '55%',
-            y: 1.5,
-            w: '45%',
-            fontSize: 18,
-            bold: true,
-            color: '363636'
-        });
-        slide${i + 1}.addText("${after ?? ''}", {
-            x: '55%',
-            y: 2,
-            w: '45%',
-            fontSize: 16,
-            color: '363636'
-        });`;
+            const [before, after] = slide.content.split('|');
+            return `
+            slide${i + 1}.addText([{ text: 'Before', options: {
+                ...${JSON.stringify(baseStyle)},
+                fontSize: 20,
+                bold: true,
+                y: 0.65
+            }}]);
+            slide${i + 1}.addText([{ text: '${(before || '').replace(/'/g, "\\'")}', options: {
+                ...${JSON.stringify(baseStyle)},
+                y: 0.75
+            }}]);
+            slide${i + 1}.addText([{ text: 'After', options: {
+                ...${JSON.stringify(baseStyle)},
+                x: 0.75,
+                w: 0.2,
+                fontSize: 20,
+                bold: true,
+                y: 0.65
+            }}]);
+            slide${i + 1}.addText([{ text: '${(after || '').replace(/'/g, "\\'")}', options: {
+                ...${JSON.stringify(baseStyle)},
+                x: 0.75,
+                w: 0.2,
+                y: 0.75
+            }}]);`;
         case 'titleOnly':
-            return `slide${i + 1}.addText("${content}", {
-            x: 1,
-            y: 2,
-            w: '80%',
-            fontSize: 32,
-            bold: true,
-            color: '363636'
-        });`;
+            return `slide${i + 1}.addText([{ text: '${slide.content.replace(/'/g, "\\'")}', options: {
+                ...${JSON.stringify(baseStyle)},
+                y: 0.7,
+                w: 0.6,
+                fontSize: 32,
+                bold: true,
+                align: 'center'
+            }}]);`;
         default:
-            return `slide${i + 1}.addText("${content}", {
-            x: 1,
-            y: 1.5,
-            w: '80%',
-            fontSize: 18,
-            color: '363636'
-        });`;
+            return `slide${i + 1}.addText([{ text: '${slide.content.replace(/'/g, "\\'")}', options: {
+                ...${JSON.stringify(baseStyle)}
+            }}]);`;
     }
 }

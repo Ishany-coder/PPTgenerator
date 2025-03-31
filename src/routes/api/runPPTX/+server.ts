@@ -3,6 +3,7 @@ import { writeFile, mkdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { homedir } from 'os';
 
 const execAsync = promisify(exec);
 
@@ -14,16 +15,7 @@ export async function POST({ request }) {
 			return json({ error: 'No code provided' }, { status: 400 });
 		}
 
-		// Create static directory if it doesn't exist
-		const staticDir = join(process.cwd(), 'static');
-		try {
-			await mkdir(staticDir, { recursive: true });
-		} catch (err) {
-			console.error('Error creating static directory:', err);
-			return json({ error: 'Failed to create static directory', details: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
-		}
-
-		// Create temp directory
+		// Create temp directory for code execution
 		const tempDir = join(process.cwd(), 'temp');
 		try {
 			await mkdir(tempDir, { recursive: true });
@@ -63,18 +55,23 @@ export async function POST({ request }) {
 		}
 
 		// Read the generated file
-		const outputPath = join(staticDir, 'presentation.pptx');
+		const outputPath = join(tempDir, 'presentation.pptx');
 		try {
 			const fileContent = await readFile(outputPath);
+			
+			// Generate a unique filename
+			const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+			const outputFileName = `presentation_${timestamp}.pptx`;
 			
 			// Set appropriate headers for file download
 			return new Response(fileContent, {
 				headers: {
 					'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-					'Content-Disposition': 'attachment; filename="presentation.pptx"',
+					'Content-Disposition': `attachment; filename="${outputFileName}"`,
 					'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
 					'Pragma': 'no-cache',
-					'Expires': '0'
+					'Expires': '0',
+					'Content-Length': fileContent.length.toString()
 				}
 			});
 		} catch (err) {
