@@ -56,49 +56,34 @@
 		
 		isGenerating = true;
 		try {
-			// First, load JSZip if not already loaded
-			if (!window.JSZip) {
-				const jszipScript = document.createElement('script');
-				jszipScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-				await new Promise((resolve, reject) => {
-					jszipScript.onload = resolve;
-					jszipScript.onerror = reject;
-					document.head.appendChild(jszipScript);
-				});
+			// Send the code to the server for processing
+			const res = await fetch('/api/runPPTX', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ code })
+			});
+
+			if (!res.ok) {
+				const error = await res.json();
+				console.error('Server error:', error);
+				throw new Error(error.error || error.details || 'Failed to generate presentation');
 			}
 
-			// Then load pptxgenjs if not already loaded
-			if (!window.pptxgen) {
-				const pptxScript = document.createElement('script');
-				pptxScript.src = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';
-				await new Promise((resolve, reject) => {
-					pptxScript.onload = () => {
-						// Add a small delay to ensure the library is fully initialized
-						setTimeout(resolve, 100);
-					};
-					pptxScript.onerror = reject;
-					document.head.appendChild(pptxScript);
-				});
-			}
-
-			// Create a script element to execute the code
-			const script = document.createElement('script');
-			// Remove the import statement and clean up text content
-			const modifiedCode = code
-				.replace(/import\s+pptxgen\s+from\s+'pptxgenjs';\s*/, '')
-				.replace(/addText\('([^']+)'/g, (match, p1) => {
-					// Clean up the text content by joining lines and removing extra spaces
-					const cleanedText = p1.split(/\s+/).join(' ').trim();
-					return `addText('${cleanedText}'`;
-				});
+			// Get the blob from the response
+			const blob = await res.blob();
+			console.log('Received blob:', blob.size, 'bytes');
 			
-			script.textContent = modifiedCode;
-			document.body.appendChild(script);
+			// Create a download link
+			const url = window.URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = res.headers.get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'presentation.pptx';
 			
-			// Remove the script after execution
-			setTimeout(() => {
-				document.body.removeChild(script);
-			}, 1000);
+			// Trigger the download
+			document.body.appendChild(a);
+			a.click();
+			window.URL.revokeObjectURL(url);
+			document.body.removeChild(a);
 
 			// Update the last message with success
 			messages.update(m => {
@@ -106,15 +91,15 @@
 				if (lastMessage && lastMessage.sender === 'bot') {
 					return [...m.slice(0, -1), { 
 						...lastMessage, 
-						text: lastMessage.text + '\n\nPresentation code executed! Check your downloads folder for the PowerPoint file.'
+						text: lastMessage.text + '\n\nPresentation downloaded successfully!'
 					}];
 				}
 				return m;
 			});
 		} catch (err) {
-			console.error('Error executing code:', err);
+			console.error('Error generating presentation:', err);
 			messages.update(m => [...m, { 
-				text: `Error executing presentation code: ${err instanceof Error ? err.message : 'Unknown error occurred'}. Please try again.`, 
+				text: `Error generating presentation: ${err instanceof Error ? err.message : 'Unknown error occurred'}. Please try again.`, 
 				sender: 'bot',
 				code: undefined,
 				slides: undefined

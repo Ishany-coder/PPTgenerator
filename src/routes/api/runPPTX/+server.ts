@@ -1,11 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import { join } from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { homedir } from 'os';
-
-const execAsync = promisify(exec);
+import PptxGenJS from 'pptxgenjs';
 
 /** @type {import('./$types').RequestHandler} */
 export async function POST({ request }) {
@@ -14,6 +10,8 @@ export async function POST({ request }) {
 		if (!code) {
 			return json({ error: 'No code provided' }, { status: 400 });
 		}
+
+		console.log('Received code:', code);
 
 		// Create temp directory for code execution
 		const tempDir = join(process.cwd(), 'temp');
@@ -24,45 +22,57 @@ export async function POST({ request }) {
 			return json({ error: 'Failed to create temp directory', details: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
 		}
 
-		// Write the code to a file
-		const codePath = join(tempDir, 'presentation.js');
-		try {
-			await writeFile(codePath, code);
-		} catch (err) {
-			console.error('Error writing code file:', err);
-			return json({ error: 'Failed to write code file', details: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
-		}
+		// Create a new presentation
+		const pres = new PptxGenJS();
+		console.log('Created new presentation instance');
+		
+		// Generate a unique filename
+		const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+		const outputFileName = `presentation_${timestamp}.pptx`;
+		const outputPath = join(tempDir, outputFileName);
+		console.log('Output path:', outputPath);
 
-		// Install dependencies if needed
 		try {
-			await execAsync('npm list pptxgenjs').catch(async () => {
-				console.log('Installing pptxgenjs...');
-				await execAsync('npm install pptxgenjs');
-			});
-		} catch (err) {
-			console.error('Error installing dependencies:', err);
-			return json({ error: 'Failed to install dependencies', details: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
-		}
+			// Create a function that has access to the pres object
+			const generatePresentation = new Function('pres', code);
+			console.log('Created function from code');
+			
+			// Execute the function with the pres object
+			console.log('Executing presentation generation...');
+			await generatePresentation(pres);
+			console.log('Presentation generation completed');
+			
+			// Log the presentation object to see its state
+			console.log('Presentation object:', pres);
+			
+			// Check if any slides were added to the presentation
+			const slides = pres._slides || [];
+			console.log('Slides array:', slides);
+			console.log('Number of slides:', slides.length);
+			
+			if (slides.length === 0) {
+				console.error('No slides were generated');
+				return json({ error: 'No slides were generated' }, { status: 500 });
+			}
 
-		// Execute the code
-		try {
-			const { stdout, stderr } = await execAsync(`node ${codePath}`);
-			console.log('Code execution output:', stdout);
-			if (stderr) console.error('Code execution errors:', stderr);
-		} catch (err) {
-			console.error('Error executing code:', err);
-			return json({ error: 'Failed to execute code', details: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
-		}
-
-		// Read the generated file
-		const outputPath = join(tempDir, 'presentation.pptx');
-		try {
+			console.log(`Generated ${slides.length} slides`);
+			
+			// Save the presentation
+			console.log('Saving presentation...');
+			await pres.writeFile({ fileName: outputPath });
+			console.log('Presentation saved successfully');
+			
+			// Read the generated file
+			console.log('Reading generated file...');
 			const fileContent = await readFile(outputPath);
+			console.log('File size:', fileContent.length);
 			
-			// Generate a unique filename
-			const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-			const outputFileName = `presentation_${timestamp}.pptx`;
-			
+			// Verify file content
+			if (fileContent.length < 1000) { // Basic check for minimum file size
+				console.error('Generated file is too small, might be empty');
+				return json({ error: 'Generated file is empty or invalid' }, { status: 500 });
+			}
+
 			// Set appropriate headers for file download
 			return new Response(fileContent, {
 				headers: {
@@ -75,11 +85,13 @@ export async function POST({ request }) {
 				}
 			});
 		} catch (err) {
-			console.error('Error reading generated file:', err);
-			return json({ error: 'Failed to read generated file', details: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
+			console.error('Error executing code:', err);
+			console.error('Error stack:', err instanceof Error ? err.stack : 'No stack trace');
+			return json({ error: 'Failed to execute code', details: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
 		}
 	} catch (err) {
 		console.error('Unexpected error:', err);
+		console.error('Error stack:', err instanceof Error ? err.stack : 'No stack trace');
 		return json({ 
 			error: 'Failed to generate PowerPoint', 
 			details: err instanceof Error ? err.message : 'Unknown error'
