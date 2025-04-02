@@ -22,10 +22,6 @@ export async function POST({ request }) {
 			return json({ error: 'Failed to create temp directory', details: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 });
 		}
 
-		// Create a new presentation
-		const pres = new PptxGenJS();
-		console.log('Created new presentation instance');
-		
 		// Generate a unique filename
 		const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 		const outputFileName = `presentation_${timestamp}.pptx`;
@@ -33,34 +29,14 @@ export async function POST({ request }) {
 		console.log('Output path:', outputPath);
 
 		try {
-			// Create a function that has access to the pres object
-			const generatePresentation = new Function('pres', code);
+			// Create a function that has access to the PptxGenJS class
+			const generatePresentation = new Function('PptxGenJS', code);
 			console.log('Created function from code');
 			
-			// Execute the function with the pres object
+			// Execute the function with the PptxGenJS class
 			console.log('Executing presentation generation...');
-			await generatePresentation(pres);
+			await generatePresentation(PptxGenJS);
 			console.log('Presentation generation completed');
-			
-			// Log the presentation object to see its state
-			console.log('Presentation object:', pres);
-			
-			// Check if any slides were added to the presentation
-			const slides = pres._slides || [];
-			console.log('Slides array:', slides);
-			console.log('Number of slides:', slides.length);
-			
-			if (slides.length === 0) {
-				console.error('No slides were generated');
-				return json({ error: 'No slides were generated' }, { status: 500 });
-			}
-
-			console.log(`Generated ${slides.length} slides`);
-			
-			// Save the presentation
-			console.log('Saving presentation...');
-			await pres.writeFile({ fileName: outputPath });
-			console.log('Presentation saved successfully');
 			
 			// Read the generated file
 			console.log('Reading generated file...');
